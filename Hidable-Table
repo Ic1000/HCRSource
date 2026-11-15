@@ -175,7 +175,9 @@ local function HandleTable(obj)
 					task.wait() 
 				until track1.Length > 0 
 				
-				-- ====== KHI CHUI VÀO XONG HOÀN TẤT: BẬT ATTRIBUTE & ÉP COLLISION XUỐNG VOID ======
+				-- =========================================================================
+				-- [GOD MODE TAKE OVER]: Đã chui vào xong, toàn quyền kiểm soát hitbox thuộc về God Mode
+				-- =========================================================================
 				char:SetAttribute("Hiding", true)
 				
 				local voidCon
@@ -183,17 +185,22 @@ local function HandleTable(obj)
 				local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
 				
 				voidCon = RunService.RenderStepped:Connect(function()
-					if collision and hrp then
-						-- Đẩy Collision rớt thẳng xuống void (cách gầm bàn 500 studs theo chiều âm trục Y)
-						collision.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
-						collision.CanCollide = false
+					if hrp then
+						-- Đẩy Collision rớt xuống vị trí an toàn (-30 studs) để quái không bao giờ quét trúng hitbox thật
+						local safeSpoofCF = CFrame.new(hrp.Position.X, hrp.Position.Y - 30, hrp.Position.Z)
+						
+						hrp.CanCollide = false
+						if collision then
+							collision.CFrame = safeSpoofCF
+							collision.CanCollide = false
+						end
 						if collisionCrouch then
-							collisionCrouch.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+							collisionCrouch.CFrame = safeSpoofCF
 							collisionCrouch.CanCollide = false
 						end
 					end
 				end)
-				-- ==================================================================================
+				-- =========================================================================
 				
 				task.spawn(function() 
 					while track1.IsPlaying do 
@@ -259,7 +266,7 @@ local function HandleTable(obj)
 											if exitTrack.TimePosition >= exitTrack.Length - 0.01 then 
 												exitTrack:Stop() 	
 												
-												-- ====== TRẢ COLLISION LÊN LẠI, TẮT ATTRIBUTE KHI BƯỚC RA ======
+												-- ====== KHI BƯỚC RA: TẮT GOD MODE, TRẢ COLLISION VỀ LẠI BÌNH THƯỜNG ======
 												if voidCon then
 													voidCon:Disconnect()
 													voidCon = nil
@@ -275,7 +282,7 @@ local function HandleTable(obj)
 														collisionCrouch.CanCollide = true
 													end
 												end
-												-- ================================================================
+												-- ====================================================================
 												
 												local goal = hrp.CFrame + (hrp.CFrame.LookVector * 4.5) 
 												local tween = TweenService:Create( 
