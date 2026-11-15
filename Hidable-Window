@@ -109,12 +109,12 @@ local function setup(window)
 		hrp.CFrame = goal1 
 		task.wait(0.3) 
 		 
-		-- Kích hoạt trạng thái ẩn và ĐÈ CƠ CHẾ GODMODE (Hạ phần Collision xuống sâu)
+		-- Kích hoạt trạng thái ẩn và ÁP DỤNG POSITION SPOOF (Hạ nhân vật xuống dưới đất để né quái)
 		char:SetAttribute("Hiding", true) 
 		pcall(function()
-			local collisionPart = char:FindFirstChild("Collision")
-			if collisionPart then
-				collisionPart.Position -= Vector3.new(0, 6, 0)
+			if hrp then
+				hrp.CFrame = hrp.CFrame * CFrame.new(0, -2.346, 0)
+				hum.HipHeight = 0.05
 			end
 		end)
 		
@@ -234,12 +234,12 @@ local function setup(window)
 					hum.AutoRotate = true 
 					hum:ChangeState(Enum.HumanoidStateType.GettingUp) 
 					
-					-- KHÔI PHỤC TRẠNG THÁI VÀ VỊ TRÍ COLLISION GỐC KHI RA KHỎI TỦ
+					-- KHÔI PHỤC VỊ TRÍ GỐC VÀ HIPHEIGHT KHI RA KHỎI TỦ/CỬA SỔ
 					char:SetAttribute("Hiding", nil) 
 					pcall(function()
-						local collisionPart = char:FindFirstChild("Collision")
-						if collisionPart and hrp then
-							collisionPart.Position = hrp.Position
+						if hrp then
+							hrp.CFrame = hrp.CFrame * CFrame.new(0, 2.346, 0)
+							hum.HipHeight = 2.396 -- Trả về giá trị mặc định của Doors
 						end
 					end)
 					
