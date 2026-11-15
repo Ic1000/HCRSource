@@ -33,7 +33,8 @@ local function HandleTable(obj)
 	Model.Name = "TableCanBeHided" 
 	Model.Parent = obj 
 	if Model.PrimaryPart and obj.PrimaryPart then 
-		Model:PivotTo(obj.PrimaryPart.CFrame) 	end 
+		Model:PivotTo(obj.PrimaryPart.CFrame) 	
+	end 
 	
 	local Players = game:GetService("Players") 
 	local LocalPlayer = Players.LocalPlayer 
@@ -48,20 +49,6 @@ local function HandleTable(obj)
 				if not char then 
 					return 
 				end 
-				
-				-- Kích hoạt trạng thái ẩn và ÁP DỤNG POSITION SPOOF (Đưa nhân vật xuống dưới đất để né quái)
-				char:SetAttribute("Hiding", true)
-				pcall(function()
-					local rootPart = char:FindFirstChild("HumanoidRootPart")
-					local hum = char:FindFirstChildOfClass("Humanoid")
-					if rootPart then
-						-- Dịch chuyển nhân vật xuống dưới 2.346 đơn vị theo trục Y và hạ HipHeight (Mô phỏng Position Spoof)
-						rootPart.CFrame = rootPart.CFrame * CFrame.new(0, -2.346, 0)
-						if hum then
-							hum.HipHeight = 0.05
-						end
-					end
-				end)
 				
 				v.Enabled = false 
 				local hum = char:FindFirstChildOfClass("Humanoid") 
@@ -103,15 +90,9 @@ local function HandleTable(obj)
 				local faceCon 
 				faceCon = RunService.RenderStepped:Connect(function() 
 					if hrp.Parent then 	
-						if bla then 		
-							local pos = hrp.Position 		
-							local look = Model.PrimaryPart.CFrame.LookVector 		
-							hrp.CFrame = CFrame.lookAt(pos, pos + look) 		
-						else 		
-							local pos = hrp.Position 		
-							local look = Model.PrimaryPart.CFrame.LookVector 		
-							hrp.CFrame = CFrame.lookAt(pos, pos + look) 	
-						end 	
+						local pos = hrp.Position 		
+						local look = Model.PrimaryPart.CFrame.LookVector 		
+						hrp.CFrame = CFrame.lookAt(pos, pos + look) 	
 					end 
 				end) 
 				
@@ -194,6 +175,26 @@ local function HandleTable(obj)
 					task.wait() 
 				until track1.Length > 0 
 				
+				-- ====== KHI CHUI VÀO XONG HOÀN TẤT: BẬT ATTRIBUTE & ÉP COLLISION XUỐNG VOID ======
+				char:SetAttribute("Hiding", true)
+				
+				local voidCon
+				local collision = char:FindFirstChild("Collision")
+				local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
+				
+				voidCon = RunService.RenderStepped:Connect(function()
+					if collision and hrp then
+						-- Đẩy Collision rớt thẳng xuống void (cách gầm bàn 500 studs theo chiều âm trục Y)
+						collision.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+						collision.CanCollide = false
+						if collisionCrouch then
+							collisionCrouch.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+							collisionCrouch.CanCollide = false
+						end
+					end
+				end)
+				-- ==================================================================================
+				
 				task.spawn(function() 
 					while track1.IsPlaying do 
 						task.wait() 
@@ -258,18 +259,23 @@ local function HandleTable(obj)
 											if exitTrack.TimePosition >= exitTrack.Length - 0.01 then 
 												exitTrack:Stop() 	
 												
-												-- Trả lại trạng thái bình thường và KHÔI PHỤC VỊ TRÍ GỐC (Đưa nhân vật ngoi lên khỏi mặt đất)
+												-- ====== TRẢ COLLISION LÊN LẠI, TẮT ATTRIBUTE KHI BƯỚC RA ======
+												if voidCon then
+													voidCon:Disconnect()
+													voidCon = nil
+												end
+												
 												char:SetAttribute("Hiding", nil) 
-												pcall(function()
-													local rootPart = char:FindFirstChild("HumanoidRootPart")
-													local hum = char:FindFirstChildOfClass("Humanoid")
-													if rootPart then
-														rootPart.CFrame = rootPart.CFrame * CFrame.new(0, 2.346, 0)
-														if hum then
-															hum.HipHeight = 2.396 -- Khôi phục HipHeight mặc định của doors
-														end
+												
+												if collision and hrp then
+													collision.CFrame = hrp.CFrame
+													collision.CanCollide = true
+													if collisionCrouch then
+														collisionCrouch.CFrame = hrp.CFrame
+														collisionCrouch.CanCollide = true
 													end
-												end)
+												end
+												-- ================================================================
 												
 												local goal = hrp.CFrame + (hrp.CFrame.LookVector * 4.5) 
 												local tween = TweenService:Create( 
