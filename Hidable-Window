@@ -108,15 +108,6 @@ local function setup(window)
 		end 
 		hrp.CFrame = goal1 
 		task.wait(0.3) 
-		 
-		-- Kích hoạt trạng thái ẩn và ÁP DỤNG POSITION SPOOF (Hạ nhân vật xuống dưới đất để né quái)
-		char:SetAttribute("Hiding", true) 
-		pcall(function()
-			if hrp then
-				hrp.CFrame = hrp.CFrame * CFrame.new(0, -2.346, 0)
-				hum.HipHeight = 0.05
-			end
-		end)
 		
 		local hideClone, buttonClone, exitRequested = false, false, false 
 		for _, obj in ipairs(plr.PlayerGui:GetDescendants()) do 
@@ -169,6 +160,25 @@ local function setup(window)
 			RunService.RenderStepped:Wait() 
 		until track.Length > 0 and track.TimePosition >= track.Length - 0.05 
 		track:AdjustSpeed(0) 
+		
+		-- ====== KHI CHUI VÀO XONG HOÀN TẤT: BẬT ATTRIBUTE & ÉP COLLISION XUỐNG VOID ======
+		char:SetAttribute("Hiding", true)
+		
+		local voidCon
+		local collision = char:FindFirstChild("Collision")
+		local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
+		
+		voidCon = RunService.RenderStepped:Connect(function()
+			if collision and hrp then
+				collision.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+				collision.CanCollide = false
+				if collisionCrouch then
+					collisionCrouch.CFrame = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+					collisionCrouch.CanCollide = false
+				end
+			end
+		end)
+		-- ==================================================================================
 		 
 		local exiting = false 
 		task.spawn(function() 
@@ -234,14 +244,23 @@ local function setup(window)
 					hum.AutoRotate = true 
 					hum:ChangeState(Enum.HumanoidStateType.GettingUp) 
 					
-					-- KHÔI PHỤC VỊ TRÍ GỐC VÀ HIPHEIGHT KHI RA KHỎI TỦ/CỬA SỔ
+					-- ====== TRẢ COLLISION LÊN LẠI, TẮT ATTRIBUTE KHI BƯỚC RA ======
+					if voidCon then
+						voidCon:Disconnect()
+						voidCon = nil
+					end
+					
 					char:SetAttribute("Hiding", nil) 
-					pcall(function()
-						if hrp then
-							hrp.CFrame = hrp.CFrame * CFrame.new(0, 2.346, 0)
-							hum.HipHeight = 2.396 -- Trả về giá trị mặc định của Doors
+					
+					if collision and hrp then
+						collision.CFrame = hrp.CFrame
+						collision.CanCollide = true
+						if collisionCrouch then
+							collisionCrouch.CFrame = hrp.CFrame
+							collisionCrouch.CanCollide = true
 						end
-					end)
+					end
+					-- ================================================================
 					
 					prompt:SetAttribute("Playing", nil) 
 					prompt.Enabled = true 
