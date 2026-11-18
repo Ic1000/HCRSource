@@ -38,6 +38,8 @@ local function HandleTable(obj)
 	
 	local Players = game:GetService("Players") 
 	local LocalPlayer = Players.LocalPlayer 
+	local RunService = game:GetService("RunService")
+	local TweenService = game:GetService("TweenService")
 	
 	for _, v in ipairs(Model:GetDescendants()) do 
 		if v:IsA("ProximityPrompt") then 
@@ -54,139 +56,44 @@ local function HandleTable(obj)
 				local hum = char:FindFirstChildOfClass("Humanoid") 
 				local hrp = char:FindFirstChild("HumanoidRootPart") 
 				if not hum or not hrp then 
+					v.Enabled = true
 					return 
 				end 
 				
-				hum.AutoRotate = false 
+				-- Dịch chuyển nhân vật tức thì vào gầm bàn và khóa góc nhìn
+				local cf, size = Model:GetBoundingBox()
+				local look = -Model.PrimaryPart.CFrame.LookVector 
+				local targetPos = cf.Position + Vector3.new(0, size.Y / 2 - 2.5, 0) + look * 1.5
 				
-				local head = char:WaitForChild("Head") 
+				hrp.CFrame = CFrame.lookAt(targetPos, targetPos + look)
+				
+				-- Khóa camera tại chỗ
 				local cam = workspace.CurrentCamera 
 				cam.CameraType = Enum.CameraType.Scriptable 
-				local camCon 
-				camCon = game:GetService("RunService").RenderStepped:Connect(function() 
-					if head.Parent then 		
-						cam.CFrame = head.CFrame 	
+				local camCon = RunService.RenderStepped:Connect(function() 
+					if hrp.Parent then 		
+						cam.CFrame = hrp.CFrame + Vector3.new(0, 1, 0)
 					end 
 				end) 
 				
-				local cf = Model:GetBoundingBox() 
-				for _, obj in ipairs(Model:GetDescendants()) do 
-					if obj:IsA("BasePart") then 		
-						obj.CanCollide = false 	
-					end 
-				end 
+				-- Tắt va chạm phần thân
 				for _, obj in ipairs(char:GetDescendants()) do 	
 					if obj:IsA("BasePart") then 		
 						obj.CanCollide = false 	
 					end 
 				end 
 				
-				local TweenService = game:GetService("TweenService") 
 				hrp.Anchored = true 
-				local bla = true 
-				local cf, size = Model:GetBoundingBox() 
-				local RunService = game:GetService("RunService") 
 				
-				local faceCon 
-				faceCon = RunService.RenderStepped:Connect(function() 
-					if hrp.Parent then 	
-						local pos = hrp.Position 		
-						local look = Model.PrimaryPart.CFrame.LookVector 		
-						hrp.CFrame = CFrame.lookAt(pos, pos + look) 	
-					end 
-				end) 
-				
-				local look = - Model.PrimaryPart.CFrame.LookVector 
-				local pos = cf.Position + Vector3.new(0, size.Y / 2 - 2, 0) + look * 1 
-				hrp.CFrame = CFrame.lookAt(pos, pos + look) 
-				
-				TweenService:Create( 
-					hrp, 	
-					TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 	
-					{ 
-						CFrame = hrp.CFrame + Vector3.new(0, 3, 0) 	
-					} 
-				):Play() 
-				
-				task.wait(0.25) 
-				local goal = hrp.CFrame - (Model.PrimaryPart.CFrame.LookVector * 2.3) 
-				local tween = TweenService:Create( 
-					hrp, 	
-					TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 	
-					{ 		
-						CFrame = goal 	} 
-				) 
-				tween:Play() 
-				tween.Completed:Wait() 
-				bla = false 
-				
-				local po = hrp.Position 
-				local loo = Model.PrimaryPart.CFrame.LookVector 
-				hrp.CFrame = CFrame.lookAt(po, po + loo) 
-				
-				local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum) 
-				local anim1 = Instance.new("Animation") 
-				anim1.AnimationId = "rbxassetid://10065788495" 
-				local track1 = animator:LoadAnimation(anim1) 
-				track1.Priority = Enum.AnimationPriority.Action4 
-				track1:Play() 
-				
-				local hideClone, buttonClone 
-				local exitRequested = false 
-				
-				track1.Ended:Connect(function() 
-					for _, obj in ipairs(game.Players.LocalPlayer.PlayerGui:GetDescendants()) do 	
-						if obj:IsA("ImageLabel") and obj.Name == "HideVignette" then 
-							hideClone = obj:Clone() 
-							hideClone.Name = "HideVignetteClone" 		
-							hideClone.ImageTransparency = 1 		
-							hideClone.Visible = true 		
-							hideClone.Parent = obj.Parent 		
-							TweenService:Create( 
-								hideClone, 			
-								TweenInfo.new(0.5, Enum.EasingStyle.Linear), 			
-								{ImageTransparency = 0} 
-							):Play() 
-						elseif obj:IsA("ImageButton") and obj.Name == "ButtonUnhide" then 
-							buttonClone = obj:Clone() 
-							buttonClone.Name = "ButtonUnhideClone" 		
-							local originalPos = obj.Position 		
-							buttonClone.Visible = true 		
-							buttonClone.Position = originalPos - UDim2.new(0, 0, 2, 0) 		
-							buttonClone.Parent = obj.Parent 		
-							local tween = TweenService:Create( 
-								buttonClone, 	
-								TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 	
-								{Position = originalPos} 
-							) 
-							tween:Play() 
-							tween.Completed:Connect(function() 	
-								if buttonClone.Parent then 		
-									buttonClone.MouseButton1Click:Connect(function() 			
-										exitRequested = true 		
-									end) 	
-								end 
-							end) 	
-						end 
-					end 
-				end) 
-				
-				repeat 
-					task.wait() 
-				until track1.Length > 0 
-				
-				-- =========================================================================
-				-- [GOD MODE TAKE OVER]: Đã chui vào xong, toàn quyền kiểm soát hitbox thuộc về God Mode
-				-- =========================================================================
+				-- ====== KÍCH HOẠT NGAY LẬP TỨC: HIDING & GOD MODE ======
 				char:SetAttribute("Hiding", true)
 				
-				local voidCon
 				local collision = char:FindFirstChild("Collision")
 				local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
 				
-				voidCon = RunService.RenderStepped:Connect(function()
+				local voidCon = RunService.RenderStepped:Connect(function()
 					if hrp then
-						-- Đẩy Collision rớt xuống vị trí an toàn (-30 studs) để quái không bao giờ quét trúng hitbox thật
+						-- Đẩy Collision rớt xuống vị trí an toàn (-30 studs) để quái hoàn toàn không quét trúng
 						local safeSpoofCF = CFrame.new(hrp.Position.X, hrp.Position.Y - 30, hrp.Position.Z)
 						
 						hrp.CanCollide = false
@@ -200,149 +107,81 @@ local function HandleTable(obj)
 						end
 					end
 				end)
-				-- =========================================================================
 				
-				task.spawn(function() 
-					while track1.IsPlaying do 
-						task.wait() 
-						if track1.TimePosition >= track1.Length - 0.01 then 
-							track1:Stop() 
-							local anim2 = Instance.new("Animation") 
-							anim2.AnimationId = "rbxassetid://10065857481" 
-							local track2 = animator:LoadAnimation(anim2) 
-							track2.Priority = Enum.AnimationPriority.Action4 
-							track2:Play() 
-							anim1:Destroy() 
-							
-							task.spawn(function() 
-								while track2.IsPlaying do 
-									task.wait(0.1) 
-									if hum.MoveDirection.Magnitude > 0 or exitRequested then 
-										track2:Stop() 
-										
-										if buttonClone then buttonClone:Destroy() end 
-										if hideClone then hideClone:Destroy() end 
-										
-										local exitAnim = Instance.new("Animation") 
-										exitAnim.AnimationId = "rbxassetid://10066064783" 
-										local exitTrack = animator:LoadAnimation(exitAnim) 
-										exitTrack.Priority = Enum.AnimationPriority.Action4 
-										exitTrack:Play() 
-										
-										local function restoreCollision() 	
-											local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") 
-											if not hrp then 		
-												return 
-											end 
-											task.spawn(function() 		
-												while true do 			
-													local touching = false 			
-													for _, part in ipairs(hrp:GetTouchingParts()) do 				
-														if part:IsDescendantOf(Model) then 					
-															touching = true 					
-															break 				
-														end 			
-													end 			
-													if not touching then 				
-														break 			
-													end 			
-													task.wait() 		
-												end 		
-												for _, obj in ipairs(Model:GetDescendants()) do 			
-													if obj:IsA("BasePart") then 				
-														obj.CanCollide = true 				
-														obj.CanTouch = true 			
-													end 		
-												end 	
-											end) 
-										end 
-										
-										repeat 
-											task.wait() 
-										until exitTrack.Length > 0 
-										
-										while exitTrack.IsPlaying do 	
-											task.wait() 	
-											if exitTrack.TimePosition >= exitTrack.Length - 0.01 then 
-												exitTrack:Stop() 	
-												
-												-- ====== KHI BƯỚC RA: TẮT GOD MODE, TRẢ COLLISION VỀ LẠI BÌNH THƯỜNG ======
-												if voidCon then
-													voidCon:Disconnect()
-													voidCon = nil
-												end
-												
-												char:SetAttribute("Hiding", nil) 
-												
-												if collision and hrp then
-													collision.CFrame = hrp.CFrame
-													collision.CanCollide = true
-													if collisionCrouch then
-														collisionCrouch.CFrame = hrp.CFrame
-														collisionCrouch.CanCollide = true
-													end
-												end
-												-- ====================================================================
-												
-												local goal = hrp.CFrame + (hrp.CFrame.LookVector * 4.5) 
-												local tween = TweenService:Create( 
-													hrp, 			
-													TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 			
-													{ 				
-														CFrame = CFrame.new(goal.Position) * (hrp.CFrame - hrp.Position) 			} 
-												) 
-												tween:Play() 
-												tween.Completed:Wait() 
-												
-												for _, obj in ipairs(char:GetDescendants()) do 	
-													if obj:IsA("BasePart") then 		
-														obj.CanCollide = true 	
-													end 
-												end 
-												for _, obj in ipairs(Model:GetDescendants()) do 	
-													if obj:IsA("BasePart") then 		
-														obj.CanCollide = false 		
-														obj.CanTouch = true 	
-													end 
-												end 
-												restoreCollision() 
-												
-												hrp.Anchored = true 
-												exitTrack:Stop() 
-												break 
-											end 
-										end 
-										
-										local finalCF = hrp.CFrame 
-										exitTrack:Destroy() 
-										exitAnim:Destroy() 
-										hrp.CFrame = finalCF 
-										task.wait() 
-										hrp.Anchored = false 
-										hrp.CFrame = finalCF 
-										task.wait() 
-										hrp.CFrame = finalCF 
-										hrp.Anchored = false 
-										
-										if faceCon then 	
-											faceCon:Disconnect() 	
-											faceCon = nil 
-										end 
-										if camCon then 	
-											camCon:Disconnect() 	
-											camCon = nil 
-										end 
-										
-										cam.CameraType = Enum.CameraType.Custom 
-										v.Enabled = true 			
-										break 
-									end 
-								end 
-							end) 
-							break 					
+				-- Hiển thị hiệu ứng Vignette mờ tối và nút bấm thoát
+				local hideClone, buttonClone 
+				local exitRequested = false 
+				
+				pcall(function()
+					for _, obj in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do 	
+						if obj:IsA("ImageLabel") and obj.Name == "HideVignette" then 
+							hideClone = obj:Clone() 
+							hideClone.Name = "HideVignetteClone" 		
+							hideClone.ImageTransparency = 0 		
+							hideClone.Visible = true 		
+							hideClone.Parent = obj.Parent 		
+						elseif obj:IsA("ImageButton") and obj.Name == "ButtonUnhide" then 
+							buttonClone = obj:Clone() 
+							buttonClone.Name = "ButtonUnhideClone" 		
+							buttonClone.Visible = true 		
+							buttonClone.Parent = obj.Parent 		
+							buttonClone.MouseButton1Click:Connect(function() 			
+								exitRequested = true 		
+							end) 	
 						end 
 					end 
-				end) 
+				end)
+				
+				hrp.Anchored = false 
+				
+				-- Lắng nghe hành động người chơi muốn ra ngoài (Di chuyển hoặc bấm nút Unhide)
+				task.spawn(function()
+					while true do
+						task.wait(0.1)
+						-- Nếu người chơi bấm nút di chuyển (WASD / Joystick) hoặc bấm nút thoát trên UI
+						if hum.MoveDirection.Magnitude > 0 or exitRequested then
+							break
+						end
+					end
+					
+					-- ====== KHI BƯỚC RA: TẮT GOD MODE & KHÔI PHỤC TRẠNG THÁI ======
+					if voidCon then
+						voidCon:Disconnect()
+						voidCon = nil
+					end
+					
+					char:SetAttribute("Hiding", nil) 
+					
+					if buttonClone then buttonClone:Destroy() end 
+					if hideClone then hideClone:Destroy() end 
+					
+					if collision and hrp then
+						collision.CFrame = hrp.CFrame
+						collision.CanCollide = true
+						if collisionCrouch then
+							collisionCrouch.CFrame = hrp.CFrame
+							collisionCrouch.CanCollide = true
+						end
+					end
+					
+					-- Đẩy nhẹ nhân vật ra phía trước bàn khi bước ra
+					local exitGoal = hrp.CFrame + (hrp.CFrame.LookVector * 3.5)
+					hrp.CFrame = CFrame.new(exitGoal.Position) * (hrp.CFrame - hrp.Position)
+					
+					for _, obj in ipairs(char:GetDescendants()) do 	
+						if obj:IsA("BasePart") then 		
+							obj.CanCollide = true 	
+						end 
+					end 
+					
+					if camCon then 	
+						camCon:Disconnect() 	
+						camCon = nil 
+					end 
+					
+					cam.CameraType = Enum.CameraType.Custom 
+					v.Enabled = true 
+				end)
 			end) 
 		end 
 	end 
