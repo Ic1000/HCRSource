@@ -1,211 +1,217 @@
-local Players = game:GetService("Players") 
-local RunService = game:GetService("RunService") 
-local TweenService = game:GetService("TweenService") 
-local UserInputService = game:GetService("UserInputService") 
-local CurrentRooms = workspace:WaitForChild("CurrentRooms") 
-local MaxLookAngle = 25 
-local plr = Players.LocalPlayer 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CurrentRooms = workspace:WaitForChild("CurrentRooms")
 
-local function setup(window) 
-	if window:FindFirstChild("HidePrompt") then 
-		return 
-	end 
-	local part = window.PrimaryPart or window:FindFirstChildWhichIsA("BasePart", true) 
-	if not part then 
-		return 
-	end 
-	local prompt = Instance.new("ProximityPrompt") 
-	prompt.Name = "HidePrompt" 
-	prompt.ActionText = "Hide" 
-	prompt.ObjectText = "Wardrobe" 
-	prompt.MaxActivationDistance = 7 
-	prompt.RequiresLineOfSight = false 
-	prompt.Style = Enum.ProximityPromptStyle.Custom 
-	prompt.Parent = part 
-	
-	prompt.Triggered:Connect(function(player) 
-		local char = player.Character 
-		if not char or player ~= plr then return end 
-		 
-		local hum = char:FindFirstChildOfClass("Humanoid") 
-		local hrp = char:FindFirstChild("HumanoidRootPart") 
-		local head = char:FindFirstChild("Head") 
-		if not hum or not hrp or not head then return end 
-		
-		-- Tránh spam click 
-		if prompt:GetAttribute("Playing") then return end 
-		prompt:SetAttribute("Playing", true) 
-		prompt.Enabled = false 
-		
-		local cam = workspace.CurrentCamera 
-		local cf = window:GetBoundingBox() 
-		 
-		-- Vị trí bên trong tủ (đẩy sâu vào trong tâm tủ)
-		local targetPos = cf.Position - cf.LookVector * 2.5 
-		local goalCF = CFrame.lookAt(targetPos, targetPos + cf.LookVector) 
-		
-		cam.CameraType = Enum.CameraType.Scriptable 
-		
-		local yaw = 0 
-		local pitch = 0 
-		local function clamp(x, a, b) 
-			return math.max(a, math.min(b, x)) 
-		end 
-		
-		-- Khóa vị trí nhân vật tức thì vào trong tủ và vô hiệu hóa va chạm thân
-		hrp.Anchored = true 
-		hrp.CFrame = goalCF 
-		
-		for _, obj in ipairs(char:GetDescendants()) do 	
-			if obj:IsA("BasePart") then 		
-				obj.CanCollide = false 	
-			end 
-		end 
-		
-		-- Ẩn nhân vật khi ở trong tủ
-		for _, v in ipairs(char:GetDescendants()) do 
-			if (v:IsA("BasePart") or v:IsA("Decal") or v:IsA("Texture")) then 
-				v.Transparency = 1 
-			end 
-		end 
-		
-		-- ====== KÍCH HOẠT NGAY LẬP TỨC: HIDING & GOD MODE (ÉP COLLISION XUỐNG VOID) ======
+local MaxLookAngle = 25
+local plr = Players.LocalPlayer
+
+local function GetCrouchRemote()
+	local remotes = ReplicatedStorage:FindFirstChild("RemotesFolder")
+		or ReplicatedStorage:FindFirstChild("EntityInfo")
+		or ReplicatedStorage:FindFirstChild("Bricks")
+	return remotes and remotes:FindFirstChild("Crouch")
+end
+
+local function SetPositionSpoof(char, hrp, hum, enabled)
+	local collision = char:FindFirstChild("Collision")
+	local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
+	local crouchRemote = GetCrouchRemote()
+
+	if enabled then
 		char:SetAttribute("Hiding", true)
-		
-		local voidCon
+		if hum then
+			hum:SetAttribute("Hiding", true)
+		end
+		if crouchRemote and crouchRemote:IsA("RemoteEvent") then
+			pcall(function()
+				crouchRemote:FireServer(true, true)
+			end)
+		end
+		if hrp then
+			hrp.CanCollide = false
+		end
+		if collision then
+			collision.CanCollide = false
+		end
+		if collisionCrouch then
+			collisionCrouch.CanCollide = false
+		end
+	else
+		char:SetAttribute("Hiding", nil)
+		if hum then
+			hum:SetAttribute("Hiding", nil)
+		end
+		if crouchRemote and crouchRemote:IsA("RemoteEvent") then
+			pcall(function()
+				crouchRemote:FireServer(false, true)
+			end)
+		end
+		if collision and hrp then
+			collision.CFrame = hrp.CFrame
+			collision.CanCollide = true
+		end
+		if collisionCrouch and hrp then
+			collisionCrouch.CFrame = hrp.CFrame
+			collisionCrouch.CanCollide = true
+		end
+	end
+end
+
+local function setup(window)
+	if window:FindFirstChild("HidePrompt") then
+		return
+	end
+	local part = window.PrimaryPart or window:FindFirstChildWhichIsA("BasePart", true)
+	if not part then
+		return
+	end
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "HidePrompt"
+	prompt.ActionText = "Hide"
+	prompt.ObjectText = "Window"
+	prompt.MaxActivationDistance = 7
+	prompt.RequiresLineOfSight = false
+	prompt.Style = Enum.ProximityPromptStyle.Custom
+	prompt.Parent = part
+
+	prompt.Triggered:Connect(function(player)
+		local char = player.Character
+		if not char or player ~= plr then return end
+
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local head = char:FindFirstChild("Head")
+		if not hum or not hrp or not head then return end
+
+		if prompt:GetAttribute("Playing") then return end
+		prompt:SetAttribute("Playing", true)
+		prompt.Enabled = false
+
+		-- Đứng ở đâu thì khóa đứng im ngay chỗ đó, không dịch chuyển đi đâu cả
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.AssemblyAngularVelocity = Vector3.zero
+		hrp.Anchored = true
+
+		for _, obj in ipairs(char:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				obj.CanCollide = false
+			end
+		end
+
+		-- Bật ngay lập tức attribute Hiding & Position Spoof kiểu Main.luau.txt
+		SetPositionSpoof(char, hrp, hum, true)
+
 		local collision = char:FindFirstChild("Collision")
 		local collisionCrouch = collision and collision:FindFirstChild("CollisionCrouch")
-		
-		voidCon = RunService.RenderStepped:Connect(function()
-			if hrp then
-				local safeSpoofCF = CFrame.new(hrp.Position.X, -500, hrp.Position.Z)
+
+		local spoofCon
+		spoofCon = RunService.RenderStepped:Connect(function()
+			if char:GetAttribute("Hiding") == true and hrp and hrp.Parent then
+				local spoofCF = CFrame.new(hrp.Position.X, hrp.Position.Y - 30, hrp.Position.Z)
 				hrp.CanCollide = false
 				if collision then
-					collision.CFrame = safeSpoofCF
+					collision.CFrame = spoofCF
 					collision.CanCollide = false
 				end
 				if collisionCrouch then
-					collisionCrouch.CFrame = safeSpoofCF
+					collisionCrouch.CFrame = spoofCF
 					collisionCrouch.CanCollide = false
 				end
 			end
 		end)
-		-- ==================================================================================
-		
-		-- Bật camera nhìn xung quanh tự do bên trong tủ
-		local con 
-		con = RunService.RenderStepped:Connect(function() 
-			local delta = UserInputService:GetMouseDelta() 
-			yaw = clamp(yaw - delta.X * 0.2, -MaxLookAngle, MaxLookAngle) 
-			pitch = clamp(pitch - delta.Y * 0.2, -MaxLookAngle, MaxLookAngle) 
-			cam.CFrame = head.CFrame 
-				* CFrame.Angles(0, math.rad(yaw), 0) 
-				* CFrame.Angles(math.rad(pitch), 0, 0) 
-		end) 
-		
-		-- Hiệu ứng Vignette tối màn hình và nút bấm thoát
-		local hideClone, buttonClone 
-		local exitRequested = false 
-		
-		pcall(function()
-			for _, obj in ipairs(plr.PlayerGui:GetDescendants()) do 	
-				if obj:IsA("ImageLabel") and obj.Name == "HideVignette" then 
-					hideClone = obj:Clone() 
-					hideClone.Name = "HideVignetteClone" 		
-					hideClone.ImageTransparency = 0 		
-					hideClone.Visible = true 		
-					hideClone.Parent = obj.Parent 		
-				elseif obj:IsA("ImageButton") and obj.Name == "ButtonUnhide" then 
-					buttonClone = obj:Clone() 
-					buttonClone.Name = "ButtonUnhideClone" 		
-					buttonClone.Visible = true 		
-					buttonClone.Parent = obj.Parent 		
-					buttonClone.MouseButton1Click:Connect(function() 			
-						exitRequested = true 		
-					end) 	
-				end 
-			end 
-		end)
-		
-		hrp.Anchored = false 
-		
-		-- Cố định HRP không bị dịch chuyển bậy bạ khi ở trong tủ
-		local lockPos = goalCF.Position 
-		local lockCon = RunService.RenderStepped:Connect(function() 
-			if hrp then
-				hrp.CFrame = CFrame.new(lockPos, lockPos + cf.LookVector) 
+
+		-- Giới hạn góc nhìn nhẹ quanh hướng hiện tại
+		local cam = workspace.CurrentCamera
+		local prevCamType = cam.CameraType
+		cam.CameraType = Enum.CameraType.Scriptable
+		local baseLook = hrp.CFrame.LookVector
+		local yaw, pitch = 0, 0
+		local function clamp(x, a, b)
+			return math.max(a, math.min(b, x))
+		end
+
+		local lookCon
+		lookCon = RunService.RenderStepped:Connect(function()
+			if hrp and hrp.Parent and head and head.Parent then
+				local delta = UserInputService:GetMouseDelta()
+				yaw = clamp(yaw - delta.X * 0.2, -MaxLookAngle, MaxLookAngle)
+				pitch = clamp(pitch - delta.Y * 0.2, -MaxLookAngle, MaxLookAngle)
+				local origin = head.Position
+				local dirCF = CFrame.lookAt(origin, origin + baseLook)
+					* CFrame.Angles(0, math.rad(yaw), 0)
+					* CFrame.Angles(math.rad(pitch), 0, 0)
+				cam.CFrame = dirCF
 			end
-		end) 
-		
-		-- Lắng nghe hành động bước ra (Di chuyển nhân vật hoặc bấm nút Unhide)
-		task.spawn(function() 
-			while true do 
-				task.wait(0.1) 
-				if hum.MoveDirection.Magnitude > 0 or exitRequested then 
-					-- Gỡ bỏ khóa vị trí và camera trong tủ
-					if lockCon then lockCon:Disconnect() end
-					if con then con:Disconnect() end
-					
-					if buttonClone then buttonClone:Destroy() end 
-					if hideClone then hideClone:Destroy() end 
-					
-					-- Hiển thị lại nhân vật
-					for _, v in ipairs(char:GetDescendants()) do 
-						if (v:IsA("BasePart") or v:IsA("Decal") or v:IsA("Texture")) then 							
-							v.Transparency = 0 
-						end 
-					end 
-					
-					cam.CameraType = Enum.CameraType.Custom 
-					
-					-- ====== KHI BƯỚC RA: TẮT GOD MODE & KHÔI PHỤC TRẠNG THÁI ======
-					if voidCon then
-						voidCon:Disconnect()
-						voidCon = nil
-					end
-					
-					char:SetAttribute("Hiding", nil) 
-					
-					if collision and hrp then
-						collision.CFrame = hrp.CFrame
-						collision.CanCollide = true
-						if collisionCrouch then
-							collisionCrouch.CFrame = hrp.CFrame
-							collisionCrouch.CanCollide = true
-						end
-					end
-					-- ================================================================
-					
-					-- Đẩy nhẹ nhân vật ra phía trước tủ khi bước ra
-					local prePos = cf.Position + cf.LookVector * 4.5 
-					hrp.CFrame = CFrame.lookAt(prePos, prePos - cf.LookVector)
-					
-					for _, obj in ipairs(char:GetDescendants()) do 	
-						if obj:IsA("BasePart") then 		
-							obj.CanCollide = true 	
-						end 
-					end 
-					
-					hrp.Anchored = false 
-					hum.AutoRotate = true 
-					
-					prompt:SetAttribute("Playing", nil) 
-					prompt.Enabled = true 
-					break 
-				end 
-			end 
-		end) 
-	end) 
-end 
+		end)
 
-for _, v in ipairs(CurrentRooms:GetDescendants()) do 
-	if v:IsA("Model") and v.Name == "Window" then 
-		setup(v) 
-	end 
-end 
+		-- Hiệu ứng Vignette và nút thoát nếu có trong PlayerGui
+		local hideClone, buttonClone
+		local exitRequested = false
 
-CurrentRooms.DescendantAdded:Connect(function(v) 
-	if v:IsA("Model") and v.Name == "Window" then 
-		setup(v) 
-	end 
+		pcall(function()
+			for _, obj in ipairs(plr.PlayerGui:GetDescendants()) do
+				if obj:IsA("ImageLabel") and obj.Name == "HideVignette" then
+					hideClone = obj:Clone()
+					hideClone.Name = "HideVignetteClone"
+					hideClone.ImageTransparency = 0
+					hideClone.Visible = true
+					hideClone.Parent = obj.Parent
+				elseif obj:IsA("ImageButton") and obj.Name == "ButtonUnhide" then
+					buttonClone = obj:Clone()
+					buttonClone.Name = "ButtonUnhideClone"
+					buttonClone.Visible = true
+					buttonClone.Parent = obj.Parent
+					buttonClone.MouseButton1Click:Connect(function()
+						exitRequested = true
+					end)
+				end
+			end
+		end)
+
+		task.spawn(function()
+			task.wait(0.15)
+			while char.Parent and hrp.Parent and char:GetAttribute("Hiding") == true do
+				task.wait(0.05)
+				if hum.MoveDirection.Magnitude > 0 or exitRequested then
+					break
+				end
+			end
+
+			if lookCon then lookCon:Disconnect() end
+			if spoofCon then spoofCon:Disconnect() end
+			if buttonClone then buttonClone:Destroy() end
+			if hideClone then hideClone:Destroy() end
+
+			SetPositionSpoof(char, hrp, hum, false)
+
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
+			hrp.Anchored = false
+
+			for _, obj in ipairs(char:GetDescendants()) do
+				if obj:IsA("BasePart") then
+					obj.CanCollide = true
+				end
+			end
+
+			cam.CameraType = prevCamType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or prevCamType
+			prompt:SetAttribute("Playing", nil)
+			prompt.Enabled = true
+		end)
+	end)
+end
+
+for _, v in ipairs(CurrentRooms:GetDescendants()) do
+	if v:IsA("Model") and v.Name == "Window" then
+		setup(v)
+	end
+end
+
+CurrentRooms.DescendantAdded:Connect(function(v)
+	if v:IsA("Model") and v.Name == "Window" then
+		setup(v)
+	end
 end)
