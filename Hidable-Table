@@ -48,7 +48,7 @@ local LocalPlayer = Players.LocalPlayer
 
 for _, v in ipairs(Model:GetDescendants()) do
 	if v:IsA("ProximityPrompt") then
-		v.RequiresLineOfSight = false
+		v.RequiresLineOfSight = true
 		v.MaxActivationDistance = math.max(v.MaxActivationDistance, 7)
 		v.Enabled = true
 		
